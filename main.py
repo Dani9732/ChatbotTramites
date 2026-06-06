@@ -2,21 +2,17 @@ import json
 import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
 import google.generativeai as genai
-
 
 load_dotenv()
 
-genai.configure(
-    api_key=os.getenv("GEMINI_API_KEY")
-)
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 modelo = genai.GenerativeModel("gemini-2.5-flash")
 
 app = FastAPI()
-
 
 with open("tramites.json", "r", encoding="utf-8") as f:
     TRAMITES = json.load(f)
@@ -29,70 +25,135 @@ class ChatRequest(BaseModel):
     mensaje: str
 
 
+estado_usuario = {
+    "fase": "seleccion_negocio",
+    "negocio": None
+}
+
+
+def buscar_negocio(mensaje):
+    mensaje = mensaje.lower()
+
+    for clave, info in TRAMITES.items():
+        nombre = info["nombre"].lower()
+
+        if clave.lower() in mensaje or nombre in mensaje:
+            return clave
+
+    return None
+
+
+def buscar_tramite(mensaje, negocio):
+    mensaje = mensaje.lower()
+    tramites = TRAMITES[negocio]["tramites"]
+
+    for tramite in tramites:
+        if tramite.lower() in mensaje:
+            return tramite
+
+    return None
+
+
+def listar_tramites(negocio):
+    info = TRAMITES[negocio]
+
+    texto = f"Para abrir una {info['nombre']} necesitas estos trámites:\n\n"
+
+    for i, tramite in enumerate(info["tramites"], start=1):
+        texto += f"{i}. {tramite}\n"
+
+    texto += "\n¿Sobre cuál trámite quieres que te explique los pasos?"
+
+    return texto
+
+
+def explicar_pasos(tramite):
+    pasos = PASOS.get(tramite)
+
+    if not pasos:
+        return "No tengo pasos registrados para ese trámite."
+
+    texto = f"Pasos para {tramite}:\n\n"
+
+    for i, paso in enumerate(pasos, start=1):
+        texto += f"{i}. {paso}\n"
+
+    texto += "\n¿Quieres consultar otro trámite de este negocio?"
+
+    return texto
+
+
 @app.post("/chat")
 def chat(req: ChatRequest):
-    mensaje = req.mensaje.lower()
+    mensaje = req.mensaje.strip()
+    mensaje_lower = mensaje.lower()
 
-    negocio_encontrado = None
-    tramite_encontrado = None
+    fase = estado_usuario["fase"]
+    negocio_actual = estado_usuario["negocio"]
 
-    # 1. Buscar si el usuario mencionó un trámite
-    for tramite in PASOS.keys():
-        if tramite.lower() in mensaje:
-            tramite_encontrado = tramite
-            break
+    if mensaje_lower in ["reiniciar", "empezar de nuevo", "reset"]:
+        estado_usuario["fase"] = "seleccion_negocio"
+        estado_usuario["negocio"] = None
 
-    # 2. Buscar si el usuario mencionó un negocio
-    for clave, info in TRAMITES.items():
-        if clave.lower() in mensaje or info["nombre"].lower() in mensaje:
-            negocio_encontrado = info
-            break
+        return {
+            "respuesta": "Listo. ¿Qué tipo de negocio quieres abrir?"
+        }
 
-    # 3. Crear contexto según lo detectado
-    if tramite_encontrado:
-        contexto = f"""
-El usuario quiere información sobre el trámite: {tramite_encontrado}
+    if fase == "seleccion_negocio":
+        negocio = buscar_negocio(mensaje)
 
-Pasos para realizarlo:
-{json.dumps(PASOS[tramite_encontrado], ensure_ascii=False, indent=2)}
-"""
-    elif negocio_encontrado:
-        contexto = f"""
-Negocio detectado: {negocio_encontrado["nombre"]}
+        if negocio:
+            estado_usuario["negocio"] = negocio
+            estado_usuario["fase"] = "seleccion_tramite"
 
-Trámites necesarios:
-{json.dumps(negocio_encontrado["tramites"], ensure_ascii=False, indent=2)}
-"""
-    else:
-        contexto = """
-No se detectó un negocio ni un trámite específico.
-Pide al usuario que indique qué negocio quiere abrir o sobre qué trámite quiere información.
-"""
+            return {
+                "respuesta": listar_tramites(negocio)
+            }
 
-    respuesta = modelo.generate_content(
-        f"""
-Eres un asesor para apertura de negocios en México.
+        return {
+            "respuesta": "Claro. Primero dime qué tipo de negocio quieres abrir. Por ejemplo: cafetería, abarrotes, papelería o restaurante."
+        }
 
-Reglas:
-- Responde de forma breve y clara.
-- No muestres todos los pasos de golpe.
-- Si detectas un negocio, muestra solo la lista de trámites necesarios.
-- Si detectas un trámite, muestra solo los pasos para realizar ese trámite.
-- Usa únicamente la información proporcionada.
-- No inventes requisitos.
-- No pidas el negocio si el usuario ya preguntó por un trámite específico.
+    if fase == "seleccion_tramite":
+        tramite = buscar_tramite(mensaje, negocio_actual)
 
-Información disponible:
-{contexto}
+        if tramite:
+            estado_usuario["fase"] = "viendo_pasos"
 
-Mensaje del usuario:
-{req.mensaje}
-"""
-    )
+            return {
+                "respuesta": explicar_pasos(tramite)
+            }
 
-    return {
-        "respuesta": respuesta.text
-    }
+        return {
+            "respuesta": "No encontré ese trámite en la lista. Escribe uno de estos:\n\n" + listar_tramites(negocio_actual)
+        }
+
+    if fase == "viendo_pasos":
+        if mensaje_lower in ["si", "sí", "simon", "claro", "quiero otro", "otro"]:
+            estado_usuario["fase"] = "seleccion_tramite"
+
+            return {
+                "respuesta": listar_tramites(negocio_actual)
+            }
+
+        if mensaje_lower in ["no", "gracias", "ya no"]:
+            estado_usuario["fase"] = "seleccion_negocio"
+            estado_usuario["negocio"] = None
+
+            return {
+                "respuesta": "Perfecto. Si quieres consultar otro negocio, dime cuál quieres abrir."
+            }
+
+        tramite = buscar_tramite(mensaje, negocio_actual)
+
+        if tramite:
+            return {
+                "respuesta": explicar_pasos(tramite)
+            }
+
+        return {
+            "respuesta": "Puedes escribir el nombre de otro trámite o responder 'sí' para ver la lista otra vez."
+        }
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
