@@ -1,0 +1,36 @@
+{
+  "Alta en SAT": [
+    "Entrar al portal del SAT.",
+    "Solicitar inscripción al RFC.",
+    "Elegir el régimen fiscal adecuado.",
+    "Generar e.firma si será necesaria.",
+    "Conservar constancia de situación fiscal."
+  ],
+  "Uso de suelo": [
+    "Identificar la dirección exacta del local.",
+    "Consultar si el giro está permitido en esa zona.",
+    "Reunir identificación, comprobante de domicilio y documentos del inmueble.",
+    "Presentar solicitud ante municipio o alcaldía.",
+    "Esperar resolución."
+  ],
+  "Licencia de funcionamiento": [
+    "Reunir RFC, identificación y comprobante del local.",
+    "Presentar solicitud ante municipio o alcaldía.",
+    "Adjuntar uso de suelo si lo solicitan.",
+    "Pagar derechos correspondientes.",
+    "Esperar autorización."
+  ],
+  "Protección Civil": [
+    "Revisar medidas de seguridad del local.",
+    "Contar con extintores, rutas de evacuación y señalización.",
+    "Solicitar inspección o visto bueno.",
+    "Corregir observaciones si existen.",
+    "Obtener constancia o dictamen."
+  ],
+  "Aviso sanitario": [
+    "Identificar si el negocio maneja alimentos o productos regulados.",
+    "Reunir datos del establecimiento.",
+    "Presentar aviso ante la autoridad sanitaria correspondiente.",
+    "Conservar acuse del trámite."
+  ]
+}

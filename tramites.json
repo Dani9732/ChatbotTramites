@@ -1,0 +1,21 @@
+{
+  "cafeteria": {
+    "nombre": "Cafetería",
+    "tramites": [
+      "Alta en SAT",
+      "Uso de suelo",
+      "Licencia de funcionamiento",
+      "Protección Civil",
+      "Aviso sanitario"
+    ]
+  },
+  "abarrotes": {
+    "nombre": "Tienda de abarrotes",
+    "tramites": [
+      "Alta en SAT",
+      "Uso de suelo",
+      "Licencia de funcionamiento",
+      "Protección Civil"
+    ]
+  }
+}
